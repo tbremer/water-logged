@@ -5,7 +5,6 @@ import WatchKit
 /// The main screen: today's progress ring plus the quick-log buttons.
 struct TodayView: View {
     @Environment(AppSettings.self) private var settings
-    @Environment(\.modelContext) private var context
     @Query private var todaysEntries: [DrinkEntry]
 
     init() {
@@ -42,8 +41,7 @@ struct TodayView: View {
     }
 
     private func log(ounces: Double) {
-        context.insert(DrinkEntry(amountOunces: ounces))
-        try? context.save()
+        WaterLog.add(ounces: ounces)
         WKInterfaceDevice.current().play(.success)
     }
 }

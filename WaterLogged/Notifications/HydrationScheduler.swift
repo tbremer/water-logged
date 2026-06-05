@@ -106,6 +106,9 @@ final class HydrationScheduler {
         content.body = body
         content.sound = .default
         content.categoryIdentifier = Self.categoryID
+        // Break through Focus / Do Not Disturb and present prominently (with haptic).
+        // Requires the "Time Sensitive Notifications" capability in the entitlements.
+        content.interruptionLevel = .timeSensitive
         return content
     }
 }

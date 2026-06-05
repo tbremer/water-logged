@@ -22,7 +22,8 @@ struct SettingsView: View {
 
                 Section(header: Text("Reminders").padding(.bottom, 1)) {
                     Toggle(isOn: $settings.remindersEnabled) {
-                        Label { Text("Reminders") } icon:{ RowGlyph(name: "bell.badge") }
+                        Text("Reminders")
+//                        Label {  } icon:{ RowGlyph(name: "bell.badge") }
                     }
 
                     if settings.remindersEnabled {
@@ -31,7 +32,8 @@ struct SettingsView: View {
                                     Text("Every \(Formatters.interval(minutes: minutes))").tag(minutes)
                                 }
                             } label: {
-                                Label { Text("Interval") } icon: { RowGlyph(name: "timer") }
+//                                Label { Text("Interval") } icon: { RowGlyph(name: "timer") }
+                                Text("Interval")
                                     .padding(.bottom, 4)
                             }
                             
@@ -51,7 +53,7 @@ struct SettingsView: View {
                             )
                             
                             Toggle(isOn: $settings.respectSleepSchedule) {
-                                Label { Text("Respect sleep schedule") } icon: { RowGlyph(name: "bed.double") }
+                                Text("Respect sleep schedule")
                             }
                     }
                 }
@@ -102,7 +104,6 @@ private struct IncrementerRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 6) {
-                RowGlyph(name: glyph)
                 Text(title)
                 Spacer(minLength: 0)
             }
