@@ -15,6 +15,9 @@ settings:
     SWIFT_VERSION: "5.0"
     DEVELOPMENT_TEAM: "Z5DFW5G77C"   # Apple Developer Team ID (kept here so it survives `xcodegen generate`)
     CODE_SIGN_STYLE: Automatic
+    # Xcode "recommended settings" (silences the project's update-to-recommended warning).
+    ENABLE_USER_SCRIPT_SANDBOXING: YES   # sandbox run-script phases for build correctness
+    STRING_CATALOG_GENERATE_SYMBOLS: YES # generate Swift symbols for String Catalog strings
 
 targets:
   WaterLogged:
