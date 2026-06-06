@@ -19,8 +19,5 @@
 	<true/>
 	<key>com.apple.developer.healthkit.access</key>
 	<array/>
-	<!-- Time Sensitive Notifications: lets reminders break through Focus/DND. -->
-	<key>com.apple.developer.usernotifications.time-sensitive</key>
-	<true/>
 </dict>
 </plist>
