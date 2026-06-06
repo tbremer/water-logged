@@ -59,9 +59,16 @@ struct DayDetailView: View {
     }
 
     private func delete(at offsets: IndexSet) {
-        for index in offsets {
-            context.delete(entries[index])
+        let removed = offsets.map { entries[$0] }
+        let removedIDs = removed.map(\.id)   // capture before deleting
+        for entry in removed {
+            context.delete(entry)
         }
         try? context.save()
+
+        // Keep Apple Health in sync if mirroring is on.
+        if AppSettings.shared.writeToHealth {
+            Task { await HydrationHealthStore.shared.delete(entryIDs: removedIDs) }
+        }
     }
 }

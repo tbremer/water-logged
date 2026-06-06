@@ -9,11 +9,9 @@ final class AppDelegate: NSObject, WKApplicationDelegate, UNUserNotificationCent
     func applicationDidFinishLaunching() {
         UNUserNotificationCenter.current().delegate = self
         HydrationScheduler.shared.registerCategories()
-
-        Task {
-            await HydrationScheduler.shared.reschedule(settings: .shared)
-            scheduleNextBackgroundRefresh()
-        }
+        // Initial scheduling is driven by the scene becoming active (see
+        // WaterLoggedApp's `.task`), so we only arm the background refresh here.
+        scheduleNextBackgroundRefresh()
     }
 
     // MARK: - Foreground presentation
@@ -67,9 +65,11 @@ final class AppDelegate: NSObject, WKApplicationDelegate, UNUserNotificationCent
     func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
         for task in backgroundTasks {
             if let refresh = task as? WKApplicationRefreshBackgroundTask {
-                Task {
-                    await HydrationScheduler.shared.reschedule(settings: .shared)
-                    scheduleNextBackgroundRefresh()
+                // Await the rebuild so the system keeps us awake until it's done,
+                // then arm the next refresh and report completion.
+                Task { @MainActor in
+                    await HydrationScheduler.shared.rescheduleNow(settings: .shared)
+                    self.scheduleNextBackgroundRefresh()
                     refresh.setTaskCompletedWithSnapshot(false)
                 }
             } else {

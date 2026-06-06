@@ -21,6 +21,7 @@ final class AppSettings {
         static let activeStartHour      = "activeStartHour"
         static let activeEndHour        = "activeEndHour"
         static let respectSleepSchedule = "respectSleepSchedule"
+        static let writeToHealth        = "writeToHealth"
     }
 
     var dailyGoalOunces: Double {
@@ -45,6 +46,10 @@ final class AppSettings {
     var respectSleepSchedule: Bool {
         didSet { defaults.set(respectSleepSchedule, forKey: Key.respectSleepSchedule) }
     }
+    /// When on, logged drinks are mirrored to Apple Health as dietary water.
+    var writeToHealth: Bool {
+        didSet { defaults.set(writeToHealth, forKey: Key.writeToHealth) }
+    }
 
     private init() {
         defaults.register(defaults: [
@@ -53,14 +58,23 @@ final class AppSettings {
             Key.reminderIntervalMinutes: 60,
             Key.activeStartHour: 8,
             Key.activeEndHour: 22,
-            Key.respectSleepSchedule: true
+            Key.respectSleepSchedule: true,
+            Key.writeToHealth: false
         ])
         dailyGoalOunces      = defaults.double(forKey: Key.dailyGoalOunces)
         remindersEnabled     = defaults.bool(forKey: Key.remindersEnabled)
         let storedInterval = defaults.integer(forKey: Key.reminderIntervalMinutes)
         reminderIntervalMinutes = AppSettings.reminderIntervalChoices.contains(storedInterval) ? storedInterval : 60
-        activeStartHour      = defaults.integer(forKey: Key.activeStartHour)
-        activeEndHour        = defaults.integer(forKey: Key.activeEndHour)
+
+        // Clamp hours to 0...23 and guarantee start <= end. A persisted window
+        // with start > end (possible from older builds) would otherwise make the
+        // scheduler silently skip every reminder.
+        let storedStart = min(max(defaults.integer(forKey: Key.activeStartHour), 0), 23)
+        let storedEnd   = min(max(defaults.integer(forKey: Key.activeEndHour), 0), 23)
+        activeStartHour = min(storedStart, storedEnd)
+        activeEndHour   = max(storedStart, storedEnd)
+
         respectSleepSchedule = defaults.bool(forKey: Key.respectSleepSchedule)
+        writeToHealth        = defaults.bool(forKey: Key.writeToHealth)
     }
 }

@@ -22,6 +22,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Water Logged reads your sleep schedule so it can avoid sending hydration reminders while you're asleep.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Water Logged saves the water you log to Apple Health so it appears alongside your other health data.</string>
 	<key>WKApplication</key>
 	<true/>
 	<key>WKWatchOnly</key>

@@ -7,6 +7,14 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var settings = settings
 
+        // The spacing reminders will actually use; differs from the picked
+        // interval only when the active window is too wide to fit them all.
+        let effectiveStep = HydrationScheduler.effectiveStepMinutes(
+            startHour: settings.activeStartHour,
+            endHour: settings.activeEndHour,
+            requestedMinutes: settings.reminderIntervalMinutes
+        )
+
         NavigationStack {
             Form {
                 Section(header: Text("Daily Goal").padding(.bottom, 1)) {
@@ -41,7 +49,10 @@ struct SettingsView: View {
                                 glyph: "sunrise",
                                 title: "Start",
                                 value: Formatters.hourLabel(settings.activeStartHour),
-                                onPlus: { settings.activeStartHour = min(23, settings.activeStartHour + 1) },
+                                // Keep Start at or before End so the active window
+                                // is never empty (which would silently disable all
+                                // reminders).
+                                onPlus: { settings.activeStartHour = min(settings.activeEndHour, settings.activeStartHour + 1) },
                                 onMinus: { settings.activeStartHour = max(0, settings.activeStartHour - 1) }
                             )
                             IncrementerRow(
@@ -49,9 +60,16 @@ struct SettingsView: View {
                                 title: "End",
                                 value: Formatters.hourLabel(settings.activeEndHour),
                                 onPlus: { settings.activeEndHour = min(23, settings.activeEndHour + 1) },
-                                onMinus: { settings.activeEndHour = max(0, settings.activeEndHour - 1) }
+                                // Keep End at or after Start (same reasoning).
+                                onMinus: { settings.activeEndHour = max(settings.activeStartHour, settings.activeEndHour - 1) }
                             )
-                            
+
+                            if effectiveStep > settings.reminderIntervalMinutes {
+                                Text("Your window is wide for this interval, so reminders are spaced about every \(Formatters.interval(minutes: effectiveStep)) to fit the watch's reminder limit.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+
                             Toggle(isOn: $settings.respectSleepSchedule) {
                                 Text("Respect sleep schedule")
                             }
@@ -63,6 +81,17 @@ struct SettingsView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+
+                if HydrationHealthStore.shared.isAvailable {
+                    Section(header: Text("Apple Health").padding(.bottom, 1)) {
+                        Toggle(isOn: $settings.writeToHealth) {
+                            Text("Save to Apple Health")
+                        }
+                        Text("Logged drinks are written to Apple Health as water, so they appear in Health and other apps.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
             .navigationTitle("Settings")
             .onChange(of: settings.remindersEnabled) { reschedule() }
@@ -70,11 +99,20 @@ struct SettingsView: View {
             .onChange(of: settings.activeStartHour) { reschedule() }
             .onChange(of: settings.activeEndHour) { reschedule() }
             .onChange(of: settings.respectSleepSchedule) { reschedule() }
+            .onChange(of: settings.writeToHealth) { _, isOn in
+                // Prompt for Health write access the first time the user opts in.
+                if isOn {
+                    Task { await HydrationHealthStore.shared.requestAuthorization() }
+                }
+            }
         }
     }
 
+    @MainActor
     private func reschedule() {
-        Task { await HydrationScheduler.shared.reschedule(settings: .shared) }
+        // Fire-and-forget; the scheduler debounces the burst of onChange calls
+        // that fire when several settings are adjusted in quick succession.
+        HydrationScheduler.shared.reschedule(settings: .shared)
     }
 }
 
