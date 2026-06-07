@@ -4,6 +4,10 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppSettings.self) private var settings
 
+    /// iCloud/CloudKit status, surfaced read-only so we can see whether sync is
+    /// live on-device without opening the CloudKit Dashboard.
+    @State private var cloudKitDiagnostics: [DiagnosticRow] = []
+
     var body: some View {
         @Bindable var settings = settings
 
@@ -92,6 +96,21 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                // Read-only: which store SwiftData settled on, and whether an
+                // iCloud account is available to sync with.
+                Section(header: Text("iCloud Sync (Diagnostics)").padding(.bottom, 1)) {
+                    ForEach(cloudKitDiagnostics) { row in
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(row.label)
+                            Spacer(minLength: 8)
+                            Text(row.value)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        .font(.caption2)
+                    }
+                }
             }
             .navigationTitle("Settings")
             .onChange(of: settings.remindersEnabled) { reschedule() }
@@ -105,7 +124,23 @@ struct SettingsView: View {
                     Task { await HydrationHealthStore.shared.requestAuthorization() }
                 }
             }
+            .task { loadCloudKitDiagnostics() }
         }
+    }
+
+    /// Snapshot the persistence layer's current store + iCloud availability.
+    /// The chosen store is fixed for the session (decided when the container is
+    /// created at launch), so a one-time read is enough.
+    private func loadCloudKitDiagnostics() {
+        _ = PersistenceController.shared   // ensure the container has been created
+        cloudKitDiagnostics = [
+            DiagnosticRow(label: "Store", value: PersistenceController.activeStore.description),
+            DiagnosticRow(
+                label: "iCloud account",
+                value: PersistenceController.isCloudKitAvailable ? "Signed in" : "Not signed in"
+            ),
+            DiagnosticRow(label: "Container", value: PersistenceController.cloudKitContainerIdentifier),
+        ]
     }
 
     @MainActor
@@ -114,6 +149,13 @@ struct SettingsView: View {
         // that fire when several settings are adjusted in quick succession.
         HydrationScheduler.shared.reschedule(settings: .shared)
     }
+}
+
+/// One row of the read-only diagnostics (label + current value).
+private struct DiagnosticRow: Identifiable {
+    var id: String { label }
+    let label: String
+    let value: String
 }
 
 /// A small cyan SF Symbol used as a leading glyph on settings rows.

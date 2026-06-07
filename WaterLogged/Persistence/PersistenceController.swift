@@ -13,8 +13,28 @@ import SwiftData
 /// your team). A `try?` can't catch that, so we must decide up front.
 enum PersistenceController {
 
+    /// Which backing store `makeContainer()` actually settled on. Surfaced for
+    /// the Settings diagnostics so we can see whether sync is live on-device.
+    enum StoreKind {
+        case cloudKit   // CloudKit-backed, syncing private database
+        case local      // on-device only, no sync
+        case inMemory   // last-resort, non-persistent
+
+        var description: String {
+            switch self {
+            case .cloudKit: return "iCloud (syncing)"
+            case .local:    return "On-device only"
+            case .inMemory: return "In-memory (not saved)"
+            }
+        }
+    }
+
     /// Must match the iCloud container in `WaterLogged.entitlements`.
     static let cloudKitContainerIdentifier = "iCloud.com.tbremer.waterlogged"
+
+    /// The store `makeContainer()` chose. Valid once `shared` has been accessed
+    /// (which happens at app launch). Defaults to `.inMemory` until then.
+    static private(set) var activeStore: StoreKind = .inMemory
 
     /// The shared container used by the whole app.
     static let shared: ModelContainer = makeContainer()
@@ -41,6 +61,7 @@ enum PersistenceController {
                 cloudKitDatabase: .private(cloudKitContainerIdentifier)
             )
            ) {
+            activeStore = .cloudKit
             return container
         }
 
@@ -52,10 +73,12 @@ enum PersistenceController {
             #if DEBUG
             print("[WaterLogged] Using a local-only store (CloudKit not available here).")
             #endif
+            activeStore = .local
             return container
         }
 
         // 3) Last resort: in-memory so the UI still works this session.
+        activeStore = .inMemory
         return try! ModelContainer(
             for: DrinkEntry.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
