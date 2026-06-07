@@ -73,15 +73,11 @@ struct SettingsView: View {
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
-
-                            Toggle(isOn: $settings.respectSleepSchedule) {
-                                Text("Respect sleep schedule")
-                            }
                     }
                 }
 
                 Section {
-                    Text("Reminders fire on your chosen cadence within your active window. \"Respect sleep schedule\" uses Health sleep data to skip your sleeping hours.")
+                    Text("Reminders fire on your chosen cadence within your active window.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -92,6 +88,13 @@ struct SettingsView: View {
                             Text("Save to Apple Health")
                         }
                         Text("Logged drinks are written to Apple Health as water, so they appear in Health and other apps.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
+                        Toggle(isOn: $settings.respectSleepSchedule) {
+                            Text("Skip reminders while asleep")
+                        }
+                        Text("Uses your Health sleep schedule to avoid reminding you during your sleeping hours.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -118,12 +121,6 @@ struct SettingsView: View {
             .onChange(of: settings.activeStartHour) { reschedule() }
             .onChange(of: settings.activeEndHour) { reschedule() }
             .onChange(of: settings.respectSleepSchedule) { reschedule() }
-            .onChange(of: settings.writeToHealth) { _, isOn in
-                // Prompt for Health write access the first time the user opts in.
-                if isOn {
-                    Task { await HydrationHealthStore.shared.requestAuthorization() }
-                }
-            }
             .task { loadCloudKitDiagnostics() }
         }
     }
