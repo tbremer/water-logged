@@ -7,6 +7,10 @@ struct DayDetailView: View {
     @Environment(\.modelContext) private var context
     @Query private var entries: [DrinkEntry]
 
+    /// The tapped entry, queued for a delete confirmation. Tapping a row (rather
+    /// than swiping) surfaces the delete option — easier than swiping on-watch.
+    @State private var entryToDelete: DrinkEntry?
+
     private let date: Date
 
     init(date: Date) {
@@ -44,18 +48,41 @@ struct DayDetailView: View {
 
             Section("Drinks") {
                 ForEach(entries) { entry in
-                    HStack {
-                        Image(systemName: "drop.fill").foregroundStyle(.blue)
-                        Text(Formatters.ounces(entry.amountOunces))
-                        Spacer()
-                        Text(entry.timestamp, style: .time)
-                            .foregroundStyle(.secondary)
+                    Button {
+                        entryToDelete = entry
+                    } label: {
+                        HStack {
+                            Image(systemName: "drop.fill").foregroundStyle(.blue)
+                            Text(Formatters.ounces(entry.amountOunces))
+                            Spacer()
+                            Text(entry.timestamp, style: .time)
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .buttonStyle(.plain)
                 }
                 .onDelete(perform: delete)
             }
         }
         .navigationTitle(date.formatted(date: .abbreviated, time: .omitted))
+        // Tap a drink to confirm deletion (swipe-to-delete still works too).
+        .confirmationDialog(
+            "Delete this drink?",
+            isPresented: Binding(
+                get: { entryToDelete != nil },
+                set: { if !$0 { entryToDelete = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: entryToDelete
+        ) { entry in
+            Button("Delete \(Formatters.ounces(entry.amountOunces))", role: .destructive) {
+                delete(entry)
+                entryToDelete = nil
+            }
+            Button("Cancel", role: .cancel) { entryToDelete = nil }
+        } message: { entry in
+            Text(entry.timestamp, style: .time)
+        }
     }
 
     private func delete(at offsets: IndexSet) {
@@ -69,6 +96,18 @@ struct DayDetailView: View {
         // Keep Apple Health in sync if mirroring is on.
         if AppSettings.shared.writeToHealth {
             Task { await HydrationHealthStore.shared.delete(entryIDs: removedIDs) }
+        }
+    }
+
+    /// Delete a single tapped entry (shared by the tap-to-delete confirmation).
+    private func delete(_ entry: DrinkEntry) {
+        let id = entry.id   // capture before deleting
+        context.delete(entry)
+        try? context.save()
+
+        // Keep Apple Health in sync if mirroring is on.
+        if AppSettings.shared.writeToHealth {
+            Task { await HydrationHealthStore.shared.delete(entryIDs: [id]) }
         }
     }
 }
