@@ -104,20 +104,10 @@ final class HydrationScheduler {
         guard settings.remindersEnabled else { return }
         guard await requestAuthorization() else { return }
 
-        var startHour = settings.activeStartHour
+        let startHour = settings.activeStartHour
         let endHour = settings.activeEndHour
 
-        // Optionally trim the morning to your habitual wake-up time.
-        if settings.respectSleepSchedule {
-            await SleepScheduleProvider.shared.requestAuthorization()
-            if let wake = await SleepScheduleProvider.shared.estimatedWakeHour() {
-                startHour = max(startHour, wake)
-            }
-        }
-
-        // The Settings UI keeps start <= end, but a high wake-hour estimate can
-        // still push the start past the end — in which case there's simply no
-        // room to schedule reminders today.
+        // The Settings UI keeps start <= end; this guard is a cheap safety net.
         guard startHour <= endHour else { return }
 
         let startMinutes = startHour * 60

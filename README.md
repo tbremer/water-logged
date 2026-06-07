@@ -7,7 +7,7 @@ A standalone **Apple Watch** hydration app:
 - 🎯 **Daily goal** (default **96 oz**) shown as a progress ring on the Today screen.
 - 📅 **Daily history** of your fluid intake, with per-day totals and swipe-to-delete.
 - ☁️ **iCloud sync** via SwiftData + CloudKit (on a signed-in device).
-- 😴 Optional **sleep-aware scheduling** using HealthKit to trim reminders around your wake-up time.
+- 🍎 Optional **Apple Health** saving — logged drinks are written as dietary water.
 
 Built with SwiftUI + SwiftData, targeting **watchOS 10+** (developed against Xcode 26.5 / watchOS 26.5).
 
@@ -62,7 +62,7 @@ membership (~$99/yr):
 - **Paid membership** → everything works as shipped. Follow "Install (paid account)" below.
 - **Free Apple ID** (personal team) → you can still side-load to your own watch, but a free account
   **cannot** provision iCloud/HealthKit/push, so the build will fail to sign until you remove them.
-  See "Install (free account)". You lose iCloud sync + sleep-aware reminders; hourly reminders,
+  See "Install (free account)". You lose iCloud sync and Apple Health saving; hourly reminders,
   logging, and history still work.
 
 ### Prepare the watch (one time)
@@ -88,8 +88,8 @@ membership (~$99/yr):
    **Run** (⌘R).
 4. If the watch warns about an untrusted developer, on the **iPhone** go to
    **Settings → General → VPN & Device Management → [your profile] → Trust**.
-5. On first launch on the watch: **Allow Notifications** (required for reminders) and, if asked,
-   **Allow Health → Sleep** (optional; only for sleep-aware scheduling).
+5. On first launch on the watch: **Allow Notifications** (required for reminders). Apple Health
+   access is only requested later, if you turn on "Save to Apple Health" in Settings.
 
 ### Install (free account)
 
@@ -98,11 +98,11 @@ A free Apple ID can't use iCloud/HealthKit/push, so strip those first:
 - In `WaterLogged/WaterLogged.entitlements`, remove the `com.apple.developer.icloud-*`,
   `aps-environment`, and `com.apple.developer.healthkit*` keys (or delete the file and remove
   `CODE_SIGN_ENTITLEMENTS` from `project.yml`).
-- In `WaterLogged/Info.plist`, remove `NSHealthShareUsageDescription`.
+- In `WaterLogged/Info.plist`, remove `NSHealthUpdateUsageDescription`.
 - `PersistenceController` already falls back to a local-only store, so the app keeps working.
 
 Then follow steps 1–5 above (your free "Personal Team" is fine). Notifications, logging, and history
-work; iCloud sync and sleep-aware scheduling are disabled.
+work; iCloud sync and Apple Health saving are disabled.
 
 ---
 
@@ -116,13 +116,8 @@ state of the platform and what this app does:
   is no supported way to gate a reminder on wrist contact. What *does* happen for free: when the
   watch is off-wrist/locked, watchOS routes alerts to your iPhone instead, and **Sleep Focus**
   automatically suppresses interruptions overnight.
-- **Awake / not sleeping (best effort):** the app does two things:
-  1. **Active-hours window** — reminders are only scheduled between your configured start/end hours
-     (default **8 AM–10 PM**). This alone prevents overnight alerts.
-  2. **Respect sleep schedule** (toggle, on by default) — with Health access, the app reads your
-     recent sleep samples to estimate your habitual **wake-up hour** and won't schedule reminders
-     before it, and it suppresses a reminder that's about to appear while a current sleep sample
-     says you're asleep.
+- **Awake / not sleeping (best effort):** reminders are only scheduled within your configured
+  **active-hours window** (default **8 AM–10 PM**), so they won't fire overnight.
 
 So: reminders effectively fire only during your waking window. True wrist-contact gating isn't
 possible on watchOS today — this is a platform limitation, not an app bug.
@@ -139,7 +134,7 @@ On the **Settings** screen (third page):
 | Reminders | On | Master on/off |
 | Interval | 1 hr | 15 min, 30 min, 1 / 2 / 4 hr |
 | Start / End hour | 8 AM / 10 PM | Active window |
-| Respect sleep schedule | On | Uses HealthKit sleep data |
+| Save to Apple Health | Off | Writes logged water to Health |
 
 Changing any reminder setting re-arms the schedule immediately. The schedule is also rebuilt when
 the app becomes active and via a daily background refresh (~3:30 AM).
@@ -174,7 +169,7 @@ WaterLogged/
   Persistence/                  ModelContainer (CloudKit + local fallback)
   Settings/                     AppSettings (@Observable, UserDefaults-backed)
   Notifications/                HydrationScheduler + AppDelegate (actions, bg refresh)
-  Health/                       SleepScheduleProvider (HealthKit, optional)
+  Health/                       HydrationHealthStore (HealthKit water write, optional)
   Views/                        Today, ProgressRing, LogButtons, History, DayDetail, Settings
   Support/                      WaterLog, Formatters
   Assets.xcassets/              AppIcon (water drop), AccentColor

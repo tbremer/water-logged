@@ -4,7 +4,7 @@ A map, not a mirror — orientation for an LLM working in this repo, not exhaust
 
 ## What this is
 
-A **standalone watchOS hydration app** (Water Logged): hourly "time to hydrate" reminders, one-tap logging, daily goal ring, history, optional iCloud sync and sleep-aware scheduling. SwiftUI + SwiftData(+CloudKit) + HealthKit + UserNotifications, watchOS 10+.
+A **standalone watchOS hydration app** (Water Logged): hourly "time to hydrate" reminders, one-tap logging, daily goal ring, history, optional iCloud sync. SwiftUI + SwiftData(+CloudKit) + HealthKit + UserNotifications, watchOS 10+.
 
 Two defining traits set expectations:
 - **There is no iPhone app target.** Watch-only (`WKWatchOnly` in Info.plist, `TARGETED_DEVICE_FAMILY=4`). Do not add an iOS/companion target unless asked.
@@ -15,7 +15,7 @@ Two defining traits set expectations:
 The app is a handful of **global singletons wired together as dependency injection**, over a **single SwiftData model**.
 
 - One model: `DrinkEntry` (`id: UUID`, `amountOunces: Double`, `timestamp: Date`). That's the entire schema.
-- Singletons (`.shared`): `PersistenceController` (the `ModelContainer`), `AppSettings` (`@Observable`, UserDefaults-backed), `HydrationScheduler` (notifications), `SleepScheduleProvider` (HealthKit). They are injected via `.environment(...)` / `.modelContainer(...)` and read directly by non-UI code (scheduler, background refresh) so UI and background see the same state.
+- Singletons (`.shared`): `PersistenceController` (the `ModelContainer`), `AppSettings` (`@Observable`, UserDefaults-backed), `HydrationScheduler` (notifications), `HydrationHealthStore` (optional HealthKit water write). They are injected via `.environment(...)` / `.modelContainer(...)` and read directly by non-UI code (scheduler, background refresh) so UI and background see the same state.
 - Reads happen through SwiftUI `@Query`; **inserts happen through `WaterLog.add(...)`** (a `@MainActor` helper), not via raw contexts.
 
 ## Architecture & canonical data flow
@@ -37,7 +37,7 @@ Canonical trace — **logging a drink** (the one flow to internalize):
 - `WaterLogged/Settings/AppSettings.swift` — `@Observable` settings + UserDefaults keys/defaults; copy this shape to add a setting.
 - `WaterLogged/Notifications/HydrationScheduler.swift` — builds the repeating reminder set; notification categories/actions.
 - `WaterLogged/Notifications/AppDelegate.swift` — notification delegate, action handling, background refresh.
-- `WaterLogged/Health/SleepScheduleProvider.swift` — optional HealthKit sleep reads (wake-hour estimate, "asleep now").
+- `WaterLogged/Health/HydrationHealthStore.swift` — optional, best-effort HealthKit write of logged water as `dietaryWater`.
 - `WaterLogged/Views/` — `RootView` (paged TabView), `TodayView`, `ProgressRingView`, `LogButtonsView`, `HistoryView`, `DayDetailView`, `SettingsView`.
 - `WaterLogged/Support/Formatters.swift` — display-string helpers (ounces, hour label, interval).
 - `project.yml` — XcodeGen spec (build settings, signing, entitlements wiring).
@@ -57,7 +57,7 @@ Canonical trace — **logging a drink** (the one flow to internalize):
 - **Settings pattern.** Each `AppSettings` property is `var ... { didSet { defaults.set(...) } }` with a `Key` constant and an entry in `register(defaults:)`. New settings must touch all three places; persisted values are re-validated on load (e.g. `reminderIntervalMinutes` falls back to 60 if not in `reminderIntervalChoices`).
 - **Writes.** Inserts go through `@MainActor WaterLog.add`. Deletes are done inline via `@Environment(\.modelContext)` in `HistoryView`/`DayDetailView` (the only views that mutate directly).
 - **Date-scoped queries.** Views build a `#Predicate` over `timestamp` in their `init` (see `TodayView`/`DayDetailView`) rather than filtering in memory; copy that shape for new day/range views.
-- **HealthKit is best-effort.** All of `SleepScheduleProvider` is `#if canImport(HealthKit)`-guarded and returns `false`/`nil` on any failure — it never throws into callers. Keep that contract.
+- **HealthKit is best-effort.** All of `HydrationHealthStore` is `#if canImport(HealthKit)`-guarded and silently no-ops on any failure — it never throws into callers. Keep that contract.
 - **Swallow-and-fallback error handling.** `try?` is used deliberately so missing capabilities degrade instead of crashing (see persistence + scheduler). Don't convert these to forced unwraps.
 - Display strings come from `Formatters`; haptics via `WKInterfaceDevice.current().play(...)`.
 
@@ -76,13 +76,13 @@ Canonical trace — **logging a drink** (the one flow to internalize):
 - **Keep `DrinkEntry` CloudKit-safe** or sync breaks: every stored property must have a default, no `@Attribute(.unique)`, no required (non-optional) relationships.
 - `PersistenceController.cloudKitContainerIdentifier` must stay in sync with the container in `WaterLogged.entitlements`.
 - **Notification budget.** `HydrationScheduler.reschedule` removes all pending requests, then adds repeating calendar triggers capped at 60 (system limit is 64; headroom left for snoozes). Don't schedule per-event without accounting for this.
-- watchOS exposes **no wrist-detection API**; reminders are only schedule/time-gated (active hours + optional sleep trimming). "Only when worn" is not achievable — don't try to add it.
+- watchOS exposes **no wrist-detection API**; reminders are only schedule/time-gated (active hours). "Only when worn" is not achievable — don't try to add it.
 
 ## Security considerations
 
 - `project.yml`/entitlements commit a real **Apple Team ID** (`Z5DFW5G77C`), bundle id, and iCloud container id. Expected for this single-owner repo, but surface this before forking/publishing rather than silently changing it.
 - `aps-environment` is `development`; switching to App Store distribution requires promoting it (and the CloudKit schema) to production — flag, don't auto-change.
-- No API keys/secrets in the repo. HealthKit is read-only (sleep analysis); no share/write scopes.
+- No API keys/secrets in the repo. HealthKit is write-only (dietary water); no read scopes.
 
 ## Working agreement for agents
 

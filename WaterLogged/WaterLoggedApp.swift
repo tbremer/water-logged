@@ -11,12 +11,8 @@ struct WaterLoggedApp: App {
             RootView()
                 .environment(AppSettings.shared)
                 // Reliable initial schedule on launch (scenePhase.onChange does
-                // not fire for the initial value), plus a one-time combined
-                // HealthKit permission prompt (sleep read + water write).
-                .task {
-                    HydrationScheduler.shared.reschedule(settings: .shared)
-                    await HealthKitAccess.requestAll()
-                }
+                // not fire for the initial value).
+                .task { HydrationScheduler.shared.reschedule(settings: .shared) }
         }
         .modelContainer(PersistenceController.shared)
         .onChange(of: scenePhase) { _, phase in

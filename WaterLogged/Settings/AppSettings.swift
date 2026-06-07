@@ -20,7 +20,6 @@ final class AppSettings {
         static let reminderIntervalMinutes = "reminderIntervalMinutes"
         static let activeStartHour      = "activeStartHour"
         static let activeEndHour        = "activeEndHour"
-        static let respectSleepSchedule = "respectSleepSchedule"
         static let writeToHealth        = "writeToHealth"
     }
 
@@ -42,10 +41,6 @@ final class AppSettings {
     var activeEndHour: Int {
         didSet { defaults.set(activeEndHour, forKey: Key.activeEndHour) }
     }
-    /// When on, Health sleep data is used to skip your sleeping hours.
-    var respectSleepSchedule: Bool {
-        didSet { defaults.set(respectSleepSchedule, forKey: Key.respectSleepSchedule) }
-    }
     /// When on, logged drinks are mirrored to Apple Health as dietary water.
     var writeToHealth: Bool {
         didSet { defaults.set(writeToHealth, forKey: Key.writeToHealth) }
@@ -58,7 +53,6 @@ final class AppSettings {
             Key.reminderIntervalMinutes: 60,
             Key.activeStartHour: 8,
             Key.activeEndHour: 22,
-            Key.respectSleepSchedule: true,
             Key.writeToHealth: false
         ])
         dailyGoalOunces      = defaults.double(forKey: Key.dailyGoalOunces)
@@ -74,7 +68,6 @@ final class AppSettings {
         activeStartHour = min(storedStart, storedEnd)
         activeEndHour   = max(storedStart, storedEnd)
 
-        respectSleepSchedule = defaults.bool(forKey: Key.respectSleepSchedule)
         writeToHealth        = defaults.bool(forKey: Key.writeToHealth)
     }
 }

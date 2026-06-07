@@ -90,13 +90,6 @@ struct SettingsView: View {
                         Text("Logged drinks are written to Apple Health as water, so they appear in Health and other apps.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-
-                        Toggle(isOn: $settings.respectSleepSchedule) {
-                            Text("Skip reminders while asleep")
-                        }
-                        Text("Uses your Health sleep schedule to avoid reminding you during your sleeping hours.")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -120,7 +113,12 @@ struct SettingsView: View {
             .onChange(of: settings.reminderIntervalMinutes) { reschedule() }
             .onChange(of: settings.activeStartHour) { reschedule() }
             .onChange(of: settings.activeEndHour) { reschedule() }
-            .onChange(of: settings.respectSleepSchedule) { reschedule() }
+            .onChange(of: settings.writeToHealth) { _, isOn in
+                // Prompt for Health write access the first time the user opts in.
+                if isOn {
+                    Task { await HydrationHealthStore.shared.requestAuthorization() }
+                }
+            }
             .task { loadCloudKitDiagnostics() }
         }
     }

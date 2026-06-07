@@ -20,11 +20,7 @@ final class AppDelegate: NSObject, WKApplicationDelegate, UNUserNotificationCent
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        // If you're (likely) asleep, don't interrupt — just file it in the list.
-        if AppSettings.shared.respectSleepSchedule,
-           await SleepScheduleProvider.shared.currentlyAsleep() {
-            return [.list]
-        }
+        // Always present reminders prominently while the app is foregrounded.
         return [.banner, .sound, .list]
     }
 

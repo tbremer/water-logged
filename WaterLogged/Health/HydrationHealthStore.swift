@@ -7,10 +7,10 @@ import HealthKit
 /// samples, so intake shows up across the Health ecosystem (Health app, other
 /// hydration apps, etc.).
 ///
-/// Mirrors the contract of `SleepScheduleProvider`: every entry point is
-/// `#if canImport(HealthKit)`-guarded and silently no-ops on any failure, so a
-/// missing capability or denied permission never breaks logging. SwiftData
-/// remains the source of truth — this is a one-way write mirror.
+/// Best-effort: every entry point is `#if canImport(HealthKit)`-guarded and
+/// silently no-ops on any failure, so a missing capability or denied permission
+/// never breaks logging. SwiftData remains the source of truth — this is a
+/// one-way write mirror.
 final class HydrationHealthStore {
     static let shared = HydrationHealthStore()
 
