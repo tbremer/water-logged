@@ -6,6 +6,10 @@ struct HistoryView: View {
     @Environment(AppSettings.self) private var settings
     @Query(sort: \DrinkEntry.timestamp, order: .reverse) private var entries: [DrinkEntry]
 
+    /// The day shown as a standalone modal detail, escaping the paged TabView so
+    /// it can be swiped away.
+    @State private var selectedDay: DaySummary?
+
     private struct DaySummary: Identifiable {
         let id: Date
         let date: Date
@@ -32,15 +36,27 @@ struct HistoryView: View {
                     )
                 } else {
                     List(days) { day in
-                        NavigationLink {
-                            DayDetailView(date: day.date)
+                        Button {
+                            selectedDay = day
                         } label: {
                             DayRow(date: day.date, total: day.total, goal: settings.dailyGoalOunces)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }
             .navigationTitle("History")
+        }
+        // Present the day as a standalone modal (not a tab sub-page), so it
+        // takes over the screen and swipe-down dismisses it.
+        .sheet(item: $selectedDay) { day in
+            NavigationStack {
+                DayDetailView(date: day.date)
+            }
+            // Re-inject the singletons so the sheet's view tree always resolves
+            // its modelContext / settings regardless of presentation quirks.
+            .modelContainer(PersistenceController.shared)
+            .environment(AppSettings.shared)
         }
     }
 }

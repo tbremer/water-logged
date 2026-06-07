@@ -1,5 +1,5 @@
 misc. todo that will need to be flushed out by coding agent:
 [x] request sleep and hydration from healthkit on app boot, keep toggle in settings for hydration, add toggle for sleep to same section
-[ ] when viewing a day from the "history" page, we should no longer be in the tab view, but a standalone scrollable view so you can easily swipe to dismiss days.
+[x] when viewing a day from the "history" page, we should no longer be in the tab view, but a standalone scrollable view so you can easily swipe to dismiss days.
 [x] remove notification diagnostics
 [x] add cloudkit diagnostics section
