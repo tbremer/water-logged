@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import CloudKit
 
 /// Owns the app's `ModelContainer`.
 ///
@@ -36,25 +37,61 @@ enum PersistenceController {
     /// (which happens at app launch). Defaults to `.inMemory` until then.
     static private(set) var activeStore: StoreKind = .inMemory
 
+    /// The CloudKit account status observed when the container was created.
+    /// Resolved once at launch and surfaced in the Settings diagnostics;
+    /// `.couldNotDetermine` until then (and on the simulator).
+    static private(set) var cloudKitAccountStatus: CKAccountStatus = .couldNotDetermine
+
+    /// Whether CloudKit mirroring is safe to enable: a real device whose iCloud
+    /// account is available to CloudKit (read from the resolved status above).
+    static var isCloudKitAvailable: Bool { cloudKitAccountStatus == .available }
+
+    /// Human-readable CloudKit account status, for the Settings diagnostics.
+    static var cloudKitAccountStatusDescription: String {
+        #if targetEnvironment(simulator)
+        return "Simulator (local only)"
+        #else
+        switch cloudKitAccountStatus {
+        case .available:              return "Available"
+        case .noAccount:              return "No iCloud account"
+        case .restricted:             return "Restricted"
+        case .couldNotDetermine:      return "Couldn't determine"
+        case .temporarilyUnavailable: return "Temporarily unavailable"
+        @unknown default:             return "Unknown"
+        }
+        #endif
+    }
+
     /// The shared container used by the whole app.
     static let shared: ModelContainer = makeContainer()
 
-    /// Whether it's safe to turn on CloudKit mirroring.
+    /// Resolve CloudKit account availability up front.
     ///
-    /// - Simulator: disabled. Ad-hoc simulator builds have no provisioned
-    ///   CloudKit container, which makes the mirroring layer trap.
-    /// - Device: enabled only when someone is signed into iCloud.
-    static var isCloudKitAvailable: Bool {
+    /// Uses `CKContainer.accountStatus()` — the canonical CloudKit signal —
+    /// rather than `FileManager.ubiquityIdentityToken`, which only tracks iCloud
+    /// Drive and reads "unavailable" for accounts that are perfectly fine for
+    /// CloudKit. `accountStatus()` is async and its callback runs off the main
+    /// thread, so we bridge it synchronously with a bounded wait (the container
+    /// is built synchronously at launch). On timeout we fall back to local-only.
+    private static func resolveCloudKitAvailability() -> Bool {
         #if targetEnvironment(simulator)
-        return false
+        return false   // sim has no provisioned container; mirroring would trap
         #else
-        return FileManager.default.ubiquityIdentityToken != nil
+        let semaphore = DispatchSemaphore(value: 0)
+        var status: CKAccountStatus = .couldNotDetermine
+        CKContainer(identifier: cloudKitContainerIdentifier).accountStatus { result, _ in
+            status = result
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 3)
+        cloudKitAccountStatus = status
+        return status == .available
         #endif
     }
 
     static func makeContainer() -> ModelContainer {
-        // 1) Preferred: CloudKit-synced private database (real device, signed in).
-        if isCloudKitAvailable,
+        // 1) Preferred: CloudKit-synced private database (real device, account available).
+        if resolveCloudKitAvailability(),
            let container = try? ModelContainer(
             for: DrinkEntry.self,
             configurations: ModelConfiguration(

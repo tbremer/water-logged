@@ -134,7 +134,7 @@ struct SettingsView: View {
             DiagnosticRow(label: "Store", value: PersistenceController.activeStore.description),
             DiagnosticRow(
                 label: "iCloud account",
-                value: PersistenceController.isCloudKitAvailable ? "Signed in" : "Not signed in"
+                value: PersistenceController.cloudKitAccountStatusDescription
             ),
             DiagnosticRow(label: "Container", value: PersistenceController.cloudKitContainerIdentifier),
         ]
